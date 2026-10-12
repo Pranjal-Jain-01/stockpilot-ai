@@ -1,5 +1,7 @@
 # StockPilot AI — Phase 1
 
+AI-powered inventory risk detection and procurement decision support.
+
 A beginner-friendly React frontend for the foundation milestone (days 1–3) in `docs/STOCKPILOT_MVP_SPEC.md`. The five routes contain useful sample views so the shared layout, components, and states can be reviewed immediately.
 
 ## Run locally
