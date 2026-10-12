@@ -48,7 +48,7 @@ Before later integration, the backend team must settle the proposed API contract
 
 Approval/rejection requests, pending submission controls, duplicate/conflict handling, query invalidation, and persisted audit history are deliberately deferred. Until then, all recommendations are pending, comparisons are read-only, and history is clearly labeled as prefilled demo data.
 
-The spec's contributor cross-review has not occurred because no second contributor is available in this workspace. No Git repository or remote was provided during Phase 1. The attached document's Git commands were treated as documentation rather than authorization to publish. Following the user's separate request to push to GitHub, this project was initialized with a `main` branch and prepared for the private repository `tanmy-8252/stockpilot-ai`. No pull request is needed for the initial source upload.
+The spec's contributor cross-review has not occurred because no second contributor is available in this workspace. No Git repository or remote was provided during Phase 1. The attached document's Git commands were treated as documentation rather than authorization to publish. Following the user's separate request to push to GitHub, this project was initialized with a `main` branch and connected to the existing collaborator repository `Pranjal-Jain-01/stockpilot-ai`. Generated dependencies and build output are excluded from Git.
 
 For deployment later, configure the static host to serve `index.html` for application routes such as `/inventory`. No hosting service was selected or deployed in this task.
 
