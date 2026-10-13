@@ -1,3 +1,5 @@
+import sys
+sys.path.insert(0, '/Users/pranjaljain/stockpilot-ai/backend')
 import pytest
 try:
     from fastapi.testclient import TestClient

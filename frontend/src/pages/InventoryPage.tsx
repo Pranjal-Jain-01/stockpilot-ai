@@ -1,43 +1,123 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { InventoryFilters, initialFilters } from '../components/inventory/InventoryFilters';
 import { InventoryTable } from '../components/inventory/InventoryTable';
 import { Badge, Button, Card, PageHeader } from '../components/ui/Primitives';
-import { DatasetView, EmptyState } from '../components/ui/States';
-import type { MockDataset } from '../types';
+import { DatasetView, LoadingState, ErrorState, EmptyState } from '../components/ui/States';
+import type { InventoryItem, RiskStatus } from '../types';
 
-function InventoryContent({ data }: { data: MockDataset }) {
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const USE_API =
+  import.meta.env.VITE_USE_API_INVENTORY === 'true' && !import.meta.env.VITEST;
+
+interface BackendInventoryItem {
+  id: number;
+  sku: string;
+  productName: string;
+  category: string;
+  storeId: number;
+  storeName: string;
+  onHandQuantity: number;
+  reservedQuantity: number;
+  averageDailyDemand: number | null;
+  coverageDays: number | null;
+  riskStatus: string | null;
+}
+
+function InventoryContent() {
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState(initialFilters);
-  const search = filters.search.trim().toLowerCase();
-  const items = data.inventory.filter(
-    (item) =>
-      (!search || `${item.sku} ${item.productName}`.toLowerCase().includes(search)) &&
-      (!filters.store || item.storeId === filters.store) &&
-      (!filters.status || item.riskStatus === filters.status),
-  );
+
+  if (USE_API) {
+    useEffect(() => {
+      let cancelled = false;
+      const fetchData = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await fetch(`${API_BASE_URL}/inventory/enriched`);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const data: BackendInventoryItem[] = await response.json();
+          // Map to frontend InventoryItem shape
+          const mapped: InventoryItem[] = data.map((item) => ({
+            id: String(item.id),
+            sku: item.sku,
+            productName: item.productName,
+            category: item.category,
+            storeId: String(item.storeId),
+            storeName: item.storeName,
+            onHandQuantity: item.onHandQuantity,
+            reservedQuantity: item.reservedQuantity,
+            averageDailyDemand: item.averageDailyDemand ?? null,
+            coverageDays: item.coverageDays,
+            riskStatus: (item.riskStatus ?? 'unknown') as RiskStatus,
+          }));
+          if (!cancelled) {
+            setInventory(mapped);
+            setLoading(false);
+          }
+        } catch (err) {
+          if (!cancelled) {
+            setError(err instanceof Error ? err.message : String(err));
+            setLoading(false);
+          }
+        }
+      };
+      fetchData();
+      return () => {
+        cancelled = true;
+      };
+    }, []);
+  }
+
+  if (USE_API) {
+    if (loading) return <LoadingState />;
+    if (error) return <ErrorState onRetry={() => window.location.reload()} />;
+  }
+
   return (
-    <Card>
-      <div className="flex items-center justify-between gap-3 px-5 py-5">
-        <h2 className="font-semibold text-slate-900">Stock directory</h2>
-        <Badge>
-          {items.length} of {data.inventory.length} records
-        </Badge>
-      </div>
-      <InventoryFilters items={data.inventory} filters={filters} onChange={setFilters} />
-      {items.length ? (
-        <InventoryTable items={items} />
-      ) : (
-        <EmptyState
-          title="No matching inventory"
-          description="Try another product, location, or risk status."
-          action={<Button onClick={() => setFilters(initialFilters)}>Clear filters</Button>}
-        />
-      )}
-      <p className="border-t border-slate-100 px-5 py-4 text-xs text-slate-500">
-        Quantities are in units. Coverage and risk status are supplied fixture values.
-      </p>
-    </Card>
+    <DatasetView>
+      {(data) => {
+        const inventoryData = USE_API ? inventory : data.inventory;
+        const search = filters.search.trim().toLowerCase();
+        const filteredItems = inventoryData.filter(
+          (item) =>
+            (!search ||
+              `${item.sku} ${item.productName}`.toLowerCase().includes(search)) &&
+            (!filters.store || item.storeId === filters.store) &&
+            (!filters.status || item.riskStatus === filters.status)
+          );
+        return (
+          <Card>
+            <div className="flex items-center justify-between gap-3 px-5 py-5">
+              <h2 className="font-semibold text-slate-900">Stock directory</h2>
+              <Badge>
+                {filteredItems.length} of {inventoryData.length} records
+              </Badge>
+            </div>
+            <InventoryFilters items={inventoryData} filters={filters} onChange={setFilters} />
+            {filteredItems.length ? (
+              <InventoryTable items={filteredItems} />
+            ) : (
+              <EmptyState
+                title="No matching inventory"
+                description="Try another product, location, or risk status."
+                action={<Button onClick={() => setFilters(initialFilters)}>Clear filters</Button>}
+              />
+            )}
+            <p className="border-t border-slate-100 px-5 py-4 text-xs text-slate-500">
+              Quantities are in units. Coverage and risk status are supplied fixture values.
+            </p>
+          </Card>
+        );
+      }}
+    </DatasetView>
   );
 }
+
 export function InventoryPage() {
   return (
     <>
@@ -46,7 +126,7 @@ export function InventoryPage() {
         title="Inventory"
         description="Browse stock across your locations and find the products that need attention."
       />
-      <DatasetView>{(data) => <InventoryContent data={data} />}</DatasetView>
+      <InventoryContent />
     </>
   );
 }

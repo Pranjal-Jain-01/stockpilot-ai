@@ -68,3 +68,19 @@ class InventoryItem(InventoryItemBase):
 
 
 # Additional schemas for other models can be added as needed
+
+class InventoryItemFrontend(BaseModel):
+    id: int
+    sku: str
+    productName: str
+    category: str
+    storeId: int
+    storeName: str
+    onHandQuantity: int
+    reservedQuantity: int
+    averageDailyDemand: Optional[float] = None
+    coverageDays: Optional[float] = None
+    riskStatus: Optional[str] = None
+
+    class Config:
+        orm_mode = True
