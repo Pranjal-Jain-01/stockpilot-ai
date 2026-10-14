@@ -1,11 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router';
 import { ChevronDown, ShieldAlert } from 'lucide-react';
 import { Card, PageHeader, Button } from '../components/ui/Primitives';
-import { DatasetView, EmptyState } from '../components/ui/States';
+import { LoadingState, ErrorState, EmptyState, DatasetView } from '../components/ui/States';
 import { SeverityBadge } from '../components/ui/RiskBadge';
 import { RiskEvidencePanel } from '../components/risks/RiskEvidencePanel';
-import type { MockDataset, RiskType } from '../types';
+import type { MockDataset, RiskType, RiskAlert, InventoryItem } from '../types';
+import { fetchRisks, fetchInventoryEnriched } from '../utils/api';
+
+// API usage flags
+const USE_API_RISKS =
+  import.meta.env.VITE_USE_API_RISKS === 'true' && !import.meta.env.VITEST;
 
 function RisksContent({ data }: { data: MockDataset }) {
   const [params] = useSearchParams();
@@ -122,6 +127,7 @@ function RisksContent({ data }: { data: MockDataset }) {
     </>
   );
 }
+
 export function RisksPage() {
   return (
     <>
@@ -130,7 +136,65 @@ export function RisksPage() {
         title="Risk Center"
         description="Understand each alert with product-level evidence before choosing a next step."
       />
-      <DatasetView>{(data) => <RisksContent data={data} />}</DatasetView>
+      {/* API-based risks content */}
+      {USE_API_RISKS ? (
+        <RisksApiContent />
+      ) : (
+        // Fallback to mock data for testing and development
+        <DatasetView>{(data) => <RisksContent data={data} />}</DatasetView>
+      )}
     </>
   );
+}
+
+function RisksApiContent() {
+  const [risks, setRisks] = useState<RiskAlert[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch risks and inventory data in parallel
+        const [risksData, inventoryData] = await Promise.all([
+          fetchRisks(),
+          fetchInventoryEnriched()
+        ]);
+
+        if (!cancelled) {
+          setRisks(risksData);
+          setInventory(inventoryData);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchData();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) return <LoadingState />;
+  if (error) return <ErrorState onRetry={() => window.location.reload()} />;
+
+  // Combine data into MockDataset format for RisksContent
+  const mockData: MockDataset = {
+    inventory,
+    risks,
+    recommendations: [], // Empty as not needed for risks page
+    history: [],         // Empty as not needed for risks page
+    snapshotLabel: '12 Oct 2026 · 09:00 IST' // Fixed value
+  };
+
+  return <RisksContent data={mockData} />;
 }

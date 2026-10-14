@@ -5,10 +5,10 @@ export function Button({
   variant = 'secondary',
   className = '',
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'destructive' }) {
   return (
     <button
-      className={`btn ${variant === 'primary' ? 'btn-primary' : 'btn-secondary'} ${className}`}
+      className={`btn ${variant === 'primary' ? 'btn-primary' : variant === 'destructive' ? 'btn-destructive' : 'btn-secondary'} ${className}`}
       {...props}
     />
   );

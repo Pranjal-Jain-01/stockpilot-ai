@@ -41,6 +41,9 @@
   .btn-secondary {
     @apply border border-slate-200 bg-white text-slate-700 hover:bg-slate-50;
   }
+  .btn-destructive {
+    @apply border border-red-500 bg-red-50 text-red-700 hover:bg-red-100;
+  }
   .input {
     @apply min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700;
   }

@@ -1,9 +1,11 @@
 import { ArrowRight, Boxes, Building2, ShieldAlert, Sparkles } from 'lucide-react';
 import { Link } from 'react-router';
 import { Badge, Card, PageHeader, StatCard } from '../components/ui/Primitives';
-import { DatasetView } from '../components/ui/States';
+import { DatasetView, LoadingState, ErrorState } from '../components/ui/States';
 import { riskLabels, SeverityBadge } from '../components/ui/RiskBadge';
-import type { MockDataset, RiskStatus, RiskType } from '../types';
+import type { MockDataset, RiskStatus, RiskType, InventoryItem, RiskAlert, Recommendation, DecisionRecord } from '../types';
+import { fetchInventoryEnriched, fetchRisks, fetchRecommendations, fetchHistory } from '../utils/api';
+import { useEffect, useState } from 'react';
 
 const healthColors: Record<RiskStatus, string> = {
   healthy: 'bg-emerald-500',
@@ -13,6 +15,10 @@ const healthColors: Record<RiskStatus, string> = {
   unknown: 'bg-slate-300',
 };
 const riskTypes: RiskType[] = ['Stockout', 'Supplier delay', 'Excess stock', 'Slow movement'];
+
+// API usage flags
+const USE_API_DASHBOARD =
+  import.meta.env.VITE_USE_API_DASHBOARD === 'true' && !import.meta.env.VITEST;
 
 function DashboardContent({ data }: { data: MockDataset }) {
   const highPriority = data.risks.filter((risk) => risk.severity === 'high').length;
@@ -226,7 +232,79 @@ export function DashboardPage() {
           </Link>
         }
       />
-      <DatasetView>{(data) => <DashboardContent data={data} />}</DatasetView>
+      {/* API-based dashboard content */}
+      {USE_API_DASHBOARD ? (
+        <DashboardApiContent />
+      ) : (
+        // Fallback to mock data for testing and development
+        <DatasetView>{(data) => <DashboardContent data={data} />}</DatasetView>
+      )}
     </>
   );
+}
+
+function DashboardApiContent() {
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [risks, setRisks] = useState<RiskAlert[]>([]);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [history, setHistory] = useState<DecisionRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch snapshot label (using a fixed value since we don't have an API endpoint for this)
+  const [snapshotLabel, ] = useState('12 Oct 2026 · 09:00 IST');
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch all data in parallel
+        const [
+          inventoryData,
+          risksData,
+          recommendationsData,
+          historyData
+        ] = await Promise.all([
+          fetchInventoryEnriched(),
+          fetchRisks(),
+          fetchRecommendations(),
+          fetchHistory()
+        ]);
+
+        if (!cancelled) {
+          setInventory(inventoryData);
+          setRisks(risksData);
+          setRecommendations(recommendationsData);
+          setHistory(historyData);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchData();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) return <LoadingState />;
+  if (error) return <ErrorState onRetry={() => window.location.reload()} />;
+
+  // Combine data into MockDataset format for DashboardContent
+  const mockData: MockDataset = {
+    inventory,
+    risks,
+    recommendations,
+    history,
+    snapshotLabel
+  };
+
+  return <DashboardContent data={mockData} />;
 }
